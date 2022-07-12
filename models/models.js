@@ -1,6 +1,8 @@
 const sequelize = require('../db');
 const {DataTypes} = require('sequelize');
 
+// здесь описываются таблицы базы данных, а также их отнешения
+
 const User = sequelize.define('user', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     name: {type: DataTypes.STRING, allowNull: false},

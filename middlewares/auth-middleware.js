@@ -1,5 +1,7 @@
 const tokenController = require('../controllers/tokenController');
 
+// непосредственно сам middleware для проверки токена
+
 module.exports = function(req, res, next) {
     try {
         const authHeader = req.headers.authorization;

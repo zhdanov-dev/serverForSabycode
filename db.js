@@ -1,5 +1,7 @@
 const {Sequelize} = require('sequelize');
 
+// данные для подключения к базе данных
+
 module.exports = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,

@@ -19,15 +19,19 @@ app.use(express.static(path.resolve(__dirname, 'files')));
 app.use('/api', router);
 app.use(authMiddleware);
 
+// запускаем sequelize и само приложение
+
 const start = async () => {
     try {
-        await sequelize.authenticate();
-        await sequelize.sync();
+
         app.listen(PORT, () => console.log(`server started on PORT ${PORT}`));
     } catch (error) {
         console.log(error);
     }
 }
+
+// эта часть овечает за получение сообщения от клиента и рассылке его всем остальным клиентам
+// возможно необходимо проверять относится ли клиент к текущей сессии, но у меня итак все работало
 
 app.ws('/', (ws) => {
     ws.on('message', (message) => {
