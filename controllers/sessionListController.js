@@ -1,19 +1,24 @@
 const {SessionList, connection, Session} = require('../models/models');
 
 class sessionListController {
+
+    // "добавляем" сессию в список сессий пользователя
+
     async addConnection(req, res) {
         try {
             const { sessionId } = req.body;
             const user = req.user;
             const sessionList = await SessionList.findOne({where: {userId: user}});
             await connection.create({sessionListId: sessionList.id, sessionId: sessionId});
-            const all = await connection.findAll();
-            res.json(all);
+            res.json("Соединение создано!");
         } catch (error) {
             console.log(error);
             return res.status(500).json('errrr');
         }
     }
+
+    // удаляем сессию из списка сессий
+    // здесь еще нужно сделать проверку на тот случай, если ни в одном списке данной сессии не будет, если так, то удалять ее и файл
 
     async removeConnection(req, res) {
         try {
@@ -28,6 +33,8 @@ class sessionListController {
             return res.status(500).json('er');
         }
     }
+
+    // получаем все сессии для списка сейссий 
 
     async getConnections(req, res) {
         try {
