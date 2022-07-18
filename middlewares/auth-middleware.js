@@ -1,6 +1,10 @@
 const tokenController = require('../controllers/tokenController');
 
-// непосредственно сам middleware для проверки токена
+/**
+     * Middleware для проверки токена
+     * @param {string} authHeader - хедер с токеном
+     * Проверяем токен и достаем из него id пользователя
+     */
 
 module.exports = function(req, res, next) {
     try {

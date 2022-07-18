@@ -13,10 +13,14 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true
+}));
 app.use(cookieParser());
-app.use(express.static(path.resolve(__dirname, 'files'))); // endpoint с именем файла отдаст файл как статику
+app.use(express.json());
+
+app.use(express.static(path.resolve(__dirname, 'sessions'))); // endpoint с именем файла отдаст файл как статику
 app.use('/api', router);
 
 
@@ -44,23 +48,47 @@ app.ws('/', (ws) => {
             case 'editorUpdate':
                 broadcast(ws, messageJSON); // отправка сообщения
                 break;
+            case 'languageUpdate':
+                languageUpdate(ws, messageJSON); // изменение языка
+                break;
         }
     })
 });
 
+// изменение языка
+
+const languageUpdate = function(ws, message) {
+    const messageForClient = { // формируем сообщение для клиента 
+        event: 'languageUpdate',
+        language: message.language
+    };
+
+    if (client.id === message.sessionId && client !== ws) {
+        client.send(JSON.stringify(messageForClient)); // рассылаем всем клиентам в текущей сессии сообщения об изменении файла
+      }
+}
+
 const connectionHandler = function(ws, message) {
     console.log('connection');
     ws.id = message.sessionId; // присваиваем клиенту id
+    ws.username = message.username;
+    let users = '';
+    aWss.clients.forEach(client => { 
+        users = users + client.username + ' ';
+    });
+
     let doc;
     try {
-        doc = fs.readFileSync(path.resolve(__dirname, 'files', `${message.sessionId}` + '.txt')).toString(); // читаем файл
+        doc = fs.readFileSync(path.resolve(__dirname, 'sessions', `${message.sessionId}` + '.txt')).toString(); // читаем файл
     } catch(e) {
-        fs.writeFileSync(path.resolve(__dirname, 'files', `${message.sessionId}` + '.txt'), ''); // если файла нет, то создаем его
+        fs.writeFileSync(path.resolve(__dirname, 'sessions', `${message.sessionId}` + '.txt'), ''); // если файла нет, то создаем его
     }
+
     const messageForClient = { // формируем сообщение для клиента 
         event: 'connection',
         username: message.username,
-        input: doc
+        input: doc,
+        users: users
     }
     ws.send(JSON.stringify(messageForClient)); // отправляем сообщение о подключении на клиент
 }
@@ -69,15 +97,24 @@ const connectionHandler = function(ws, message) {
 
 function broadcast(ws, message) {
     try {
-        fs.writeFileSync(path.resolve(__dirname, 'files', `${message.sessionId}` + '.txt'), message.input); // обновляем файл
+        fs.writeFileSync(path.resolve(__dirname, 'sessions', `${message.sessionId}` + '.txt'), message.input); // обновляем файл
     } catch(e) {
         console.log(e);
     }
+
+    let users = '';
+    const messageForClient = { // формируем сообщение для клиента 
+        event: message.event,
+        input: message.input,
+        users: users
+    }
+
     aWss.clients.forEach(client => {
+        users = users + client.username + ' ';
         if (client.id === message.sessionId && client !== ws) {
-          client.send(JSON.stringify(message)); // рассылаем всем клиентам в текущей сессии сообщения об изменении файла
+          client.send(JSON.stringify(messageForClient)); // рассылаем всем клиентам в текущей сессии сообщения об изменении файла
         }
-    })
+    });
 }
 
 app.use(authMiddleware); // middleware для проверки авторизован ли пользователь

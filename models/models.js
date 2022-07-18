@@ -7,7 +7,6 @@ const User = sequelize.define('user', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true}, //  id
     name: {type: DataTypes.STRING, allowNull: false}, // имя
     email: {type: DataTypes.STRING, unique: true, allowNull: false}, // почта
-    password: {type: DataTypes.STRING, allowNull: false} // пароль
 })
 
 const Token = sequelize.define('token', {

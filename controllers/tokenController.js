@@ -3,7 +3,12 @@ const {Token} = require('../models/models');
 
 class tokenController {
 
-    // генерация пары токенов
+    /**
+     * Генерация пары токенов
+     * @param {string} id - Id пользователя
+     * @param {string} email - Email пользователя
+     * Пара токенов access, refresh
+     */
 
     genereteToken(id, email) {
         const accessToken = jwt.sign({id: id, email}, process.env.SECRET_KEY, {expiresIn: '1h'});
@@ -11,7 +16,12 @@ class tokenController {
         return { accessToken, refreshToken }
     }
 
-    // сохранение refreshToken'а в бд
+    /**
+     * Сохранение refresh токена в базу данных
+     * @param {string} userId - Id пользователя
+     * @param {string} refreshToken - refresh токен
+     * Перезаписываем токен в бд, если такой таблицы нет, то создаем ее
+     */
 
     async saveToken(userId, refreshToken) {
         const tokenData = await Token.findOne({where: {userId: userId}});
@@ -23,19 +33,31 @@ class tokenController {
         return token;
     }
 
-    // удаление токена из бд
+    /**
+     * Удаление refresh токена из базы данных
+     * @param {string} refreshToken - refresh токен
+     * Удаляем таблицу с refresh токеном из бд
+     */
 
     async removeToken(refreshToken) {
         const tokenData = await Token.destroy({where: {refreshToken: refreshToken}});
         return tokenData;
     }
 
+    /**
+     * Ищем токен в базе данных
+     * @param {string} refreshToken - refresh токен
+     */
+
     async findToken(refreshToken) {
         const tokenData = await Token.findOne({where: {refreshToken: refreshToken}});
         return tokenData;
     }
 
-    // валидация
+    /**
+     * Валидируем токены
+     * @param {string} token - access/refresh токен
+     */
 
     validateAccess(token) {
         try {
