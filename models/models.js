@@ -20,6 +20,9 @@ const SessionList = sequelize.define('sessionList', {
 
 const Session = sequelize.define('session', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true}, // id
+    abilityToEdit: {type: DataTypes.BOOLEAN, allowNull: false},
+    language: {type: DataTypes.STRING},
+    users: {type: DataTypes.ARRAY(DataTypes.STRING)},
     sessionStatic: {type: DataTypes.STRING, unique: true} // название сессии
 })
 

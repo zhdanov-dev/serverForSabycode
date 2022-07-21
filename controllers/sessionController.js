@@ -23,7 +23,12 @@ class sessionController {
                     return res.status(200).json({message: "Соединение установлено!"});
                 } else { return res.status(200).json({message: "Соединение уже существует!"}); }
             } else {
-                const session = await Session.create({sessionStatic: fileName});
+                const session = await Session.create({
+                    abilityToEdit: true,
+                    language: 'javascript',
+                    users: [],
+                    sessionStatic: fileName
+                });
                 const sessionList = await SessionList.findOne({where: {userId: user}});
                 await connection.create({sessionListId: sessionList.id, sessionId: session.id});
                 return res.status(200).json({message: "Сессия и соединение установлены!"});

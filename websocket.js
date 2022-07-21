@@ -1,15 +1,18 @@
+const path = require('path');
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const WSServer = require('express-ws')(app);
 const aWss = WSServer.getWss();
 const cors = require('cors');
-const path = require('path');
 const sequelize = require('./db');
 const router = require('./routes/index');
 const cookieParser = require('cookie-parser');
 const authMiddleware = require('./middlewares/auth-middleware');
 const fs = require('fs');
-require('dotenv').config();
+const {Session} = require('./models/models');
+
+require('dotenv').config({ path: path.resolve(__dirname, '../../../.env_connect')});
 
 const PORT = process.env.PORT || 5000;
 
@@ -51,46 +54,114 @@ app.ws('/', (ws) => {
             case 'languageUpdate':
                 languageUpdate(ws, messageJSON); // изменение языка
                 break;
+            case 'close':
+                close(ws, messageJSON); 
+                break;
+            case 'markersUpdate':
+                markersUpdate(ws, messageJSON); 
+                break;
+            case 'disconnection':
+                disconnection(ws, messageJSON); 
+                break;
         }
     })
 });
 
+const markersUpdate = function(ws, message) {
+    awssBroadcast(message, message, false, ws);
+}
+
+async function close(ws, message) {
+    await Session.update({abilityToEdit: false}, {where: {sessionStatic: message.sessionId + '.txt'}});
+    const messageForClient = {
+        event: 'close',
+        abilityToEdit: false
+    };
+    
+    awssBroadcast(message, messageForClient, true, ws);
+}
+
 // изменение языка
 
-const languageUpdate = function(ws, message) {
+async function languageUpdate(ws, message) {
     const messageForClient = { // формируем сообщение для клиента 
         event: 'languageUpdate',
         language: message.language
     };
 
-    if (client.id === message.sessionId && client !== ws) {
-        client.send(JSON.stringify(messageForClient)); // рассылаем всем клиентам в текущей сессии сообщения об изменении файла
-      }
+    try {
+        await Session.update({language: message.language}, {where: {sessionStatic: message.sessionId + '.txt'}});
+    } catch {
+        console.log('Не авторизован!');
+    }
+
+    awssBroadcast(message, messageForClient, false, ws);
 }
 
-const connectionHandler = function(ws, message) {
+async function connectionHandler(ws, message) {
     console.log('connection');
-    ws.id = message.sessionId; // присваиваем клиенту id
+    ws.id = message.sessionId; 
     ws.username = message.username;
-    let users = '';
-    aWss.clients.forEach(client => { 
-        users = users + client.username + ' ';
+    let users = [];
+    let first = false;
+    let doc = '';
+    let canEdit = true;
+    let usersSession;
+    let oneMoreUsers;
+    let language;
+
+    aWss.clients.forEach(client => {
+        if (client.id === message.sessionId) {
+            users.push(client.username);
+        }
     });
 
-    let doc;
     try {
         doc = fs.readFileSync(path.resolve(__dirname, 'sessions', `${message.sessionId}` + '.txt')).toString(); // читаем файл
-    } catch(e) {
+    } catch {
         fs.writeFileSync(path.resolve(__dirname, 'sessions', `${message.sessionId}` + '.txt'), ''); // если файла нет, то создаем его
+        first = true;
+        oneMoreUsers = users;
+        language = 'javascript';
+    }
+    
+    try {
+        const abilityToEdit = await Session.findOne({where: {sessionStatic: `${message.sessionId}.txt`}});
+        if (abilityToEdit.abilityToEdit === false) {
+            canEdit = false;
+        }
+        await Session.update({users: users}, {where: {sessionStatic: message.sessionId + '.txt'}});
+        usersSession = await Session.findOne({where: {sessionStatic: message.sessionId + '.txt'}});
+        oneMoreUsers = usersSession.users;
+        language = usersSession.language;
+    } catch {
+        canEdit = true;
+        oneMoreUsers = users;
+        language = 'javascript';
     }
 
     const messageForClient = { // формируем сообщение для клиента 
         event: 'connection',
         username: message.username,
         input: doc,
-        users: users
-    }
-    ws.send(JSON.stringify(messageForClient)); // отправляем сообщение о подключении на клиент
+        language: language,
+        users: oneMoreUsers,
+        first: first,
+        abilityToEdit: canEdit 
+    };
+
+    awssBroadcast(message, messageForClient, true, ws);
+}
+
+const disconnection = function(ws, message) {
+    let users;
+    aWss.clients.forEach(client => {
+        if (client.id === message.sessionId) {
+            users.push(client.username);
+        }
+    });
+
+    awssBroadcast(message, {event: 'disconnection', users: users}, true, ws);
 }
 
 //рассылаем сообщение всем клиентам
@@ -102,19 +173,23 @@ function broadcast(ws, message) {
         console.log(e);
     }
 
-    let users = '';
-    const messageForClient = { // формируем сообщение для клиента 
-        event: message.event,
-        input: message.input,
-        users: users
-    }
+    awssBroadcast(message, message, false, ws);
+}
 
-    aWss.clients.forEach(client => {
-        users = users + client.username + ' ';
-        if (client.id === message.sessionId && client !== ws) {
-          client.send(JSON.stringify(messageForClient)); // рассылаем всем клиентам в текущей сессии сообщения об изменении файла
-        }
-    });
+const awssBroadcast = function(message, messageForClient, all, ws) {
+    if (all) {
+        aWss.clients.forEach(client => {
+            if (client.id === message.sessionId) {
+              client.send(JSON.stringify(messageForClient));
+            }
+        })
+    } else {
+        aWss.clients.forEach(client => {
+            if (client.id === message.sessionId && client !== ws) {
+              client.send(JSON.stringify(messageForClient));
+            }
+        });
+    }
 }
 
 app.use(authMiddleware); // middleware для проверки авторизован ли пользователь

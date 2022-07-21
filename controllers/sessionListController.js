@@ -52,14 +52,20 @@ class sessionListController {
                 allFiles = [...allFiles, oneFile];
             }
             let fileName = [];
+            let users = [];
+            let language = [];
             allFiles.forEach(element => {
                 fileName = [...fileName, element.sessionStatic];
+                users = [...users, element.users];
+                language = [...language, element.language];
             });
             const infoOfSession = [];
             for (let i = 0; i < fileName.length; i++) {
                 const file = fs.statSync((path.resolve(__dirname, '..' ,'sessions', fileName[i])));
                 infoOfSession[i] = {
                     file: fileName[i],
+                    users: users[i],
+                    language: language[i],
                     birthtime: file.birthtime.toString(),
                     updatetime: file.mtime.toString()
                 }
